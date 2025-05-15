@@ -1,0 +1,133 @@
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+
+public class WipeMechanic3D : MonoBehaviour
+{
+    [SerializeField] private List<Image> topImageComponents;
+    [SerializeField] private Transform eraserObject;
+    public float brushSize = 50f;
+    public float eraseDistanceThreshold = 0.1f;
+    public float eraseCompletionThreshold = 80f; 
+    private List<Texture2D> topImageTextures;
+    private List<RectTransform> canvasRectTransforms;
+    private List<int> erasedPixelCounts;
+    private List<int> totalPixelCounts;
+    private List<bool> isEraseComplete;
+    [SerializeField] public bool allCanvasesErased; //see paintcheacker if this needs to be true and when complet false
+
+    void Start()
+    {
+        topImageTextures = new List<Texture2D>();
+        canvasRectTransforms = new List<RectTransform>();
+        erasedPixelCounts = new List<int>();
+        totalPixelCounts = new List<int>();
+        isEraseComplete = new List<bool>();
+
+        foreach (Image topImage in topImageComponents)
+        {
+            canvasRectTransforms.Add(topImage.rectTransform);
+
+            Texture2D originalTexture = topImage.sprite.texture;
+            if (!originalTexture.isReadable)
+            {
+                Debug.LogError("The texture " + topImage.name + " is not readable! Please enable 'Read/Write' in the texture import settings.");
+                continue;
+            }
+
+            Texture2D writableTexture = new Texture2D(originalTexture.width, originalTexture.height, originalTexture.format, false);
+            writableTexture.SetPixels(originalTexture.GetPixels());
+            writableTexture.Apply();
+
+            topImage.sprite = Sprite.Create(writableTexture, new Rect(0, 0, writableTexture.width, writableTexture.height), new Vector2(0.5f, 0.5f));
+            topImageTextures.Add(writableTexture);
+
+            int totalPixels = writableTexture.width * writableTexture.height;
+            totalPixelCounts.Add(totalPixels);
+            erasedPixelCounts.Add(0);
+            isEraseComplete.Add(false);
+        }
+        allCanvasesErased = false; 
+
+    void Update()
+    {
+        Vector3 eraserPosition = eraserObject.position;
+
+        for (int i = 0; i < topImageComponents.Count; i++)
+        {
+            RectTransform canvasRectTransform = canvasRectTransforms[i];
+            Texture2D topImageTexture = topImageTextures[i];
+
+            Vector2 localPoint;
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                canvasRectTransform,
+                Camera.main.WorldToScreenPoint(eraserPosition),
+                Camera.main,
+                out localPoint))
+            {
+                if (Vector2.Distance(canvasRectTransform.position, eraserObject.position) <= eraseDistanceThreshold)
+                {
+                    Vector2 normalizedPoint = new Vector2(
+                        (localPoint.x + canvasRectTransform.rect.width * 0.5f) / canvasRectTransform.rect.width,
+                        (localPoint.y + canvasRectTransform.rect.height * 0.5f) / canvasRectTransform.rect.height
+                    );
+
+                    int x = Mathf.FloorToInt(normalizedPoint.x * topImageTexture.width);
+                    int y = Mathf.FloorToInt(normalizedPoint.y * topImageTexture.height);
+
+                    WipeAtPosition(topImageTexture, x, y, i);
+                }
+            }
+
+            
+            isEraseComplete[i] = CalculateErasePercentage(i) >= eraseCompletionThreshold;
+        }
+
+        //checks all canvasssas
+        allCanvasesErased = isEraseComplete.TrueForAll(status => status);
+
+        if (allCanvasesErased)
+        {
+            Debug.Log("All canvases have been erased to the threshold!");
+        }
+    }
+
+    private void WipeAtPosition(Texture2D texture, int x, int y, int textureIndex)
+    {
+        int radius = Mathf.FloorToInt(brushSize / 2f);
+
+        for (int i = -radius; i < radius; i++)
+        {
+            for (int j = -radius; j < radius; j++)
+            {
+                int newX = x + i;
+                int newY = y + j;
+
+                if (newX >= 0 && newX < texture.width && newY >= 0 && newY < texture.height)
+                {
+                    float dist = Vector2.Distance(new Vector2(x, y), new Vector2(newX, newY));
+
+                    if (dist <= radius)
+                    {
+                        Color color = texture.GetPixel(newX, newY);
+                        if (color.a > 0f)
+                        {
+                            color.a = 0f;
+                            texture.SetPixel(newX, newY, color);
+                            erasedPixelCounts[textureIndex]++;
+                        }
+                    }
+                }
+            }
+        }
+
+        texture.Apply();
+    }
+
+    private float CalculateErasePercentage(int textureIndex)
+    {
+        int erasedCount = erasedPixelCounts[textureIndex];
+        int totalPixels = totalPixelCounts[textureIndex];
+        return (float)erasedCount / totalPixels * 100f;
+    }
+}
