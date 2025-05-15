@@ -1,0 +1,88 @@
+using UnityEngine;
+
+public class DraggableObject : MonoBehaviour
+{
+    private Vector3 offset;
+    private Vector3 startPosition;
+    private Camera mainCamera;
+    private bool isDragging;
+    private bool isSnappedToBox;
+
+    void Start()
+    {
+        mainCamera = Camera.main;
+        startPosition = transform.position;
+    }
+
+    void Update()
+    {
+        // so its only usable with 1 finger so it doesnt overlap with the zoom mechanic
+        if (Input.touchCount == 1)
+        {
+            Touch touch = Input.GetTouch(0);
+            Ray ray = mainCamera.ScreenPointToRay(touch.position);
+            RaycastHit hit;
+
+            switch (touch.phase)
+            {
+                case TouchPhase.Began:
+                    if (Physics.Raycast(ray, out hit) && hit.transform == transform)
+                    {
+                        offset = transform.position - hit.point;
+                        isDragging = true;
+                    }
+                    break;
+
+                case TouchPhase.Moved:
+                    if (isDragging && Physics.Raycast(ray, out hit))
+                    {
+                        transform.position = hit.point + offset;
+                    }
+                    break;
+
+                case TouchPhase.Ended:
+                    if (isDragging)
+                    {
+                        isDragging = false;
+
+                        if (IsOverBox())
+                        {
+                            SnapToBox();
+                        }
+                        else if (isSnappedToBox)
+                        {
+                            ReturnToStart();
+                        }
+                    }
+                    break;
+            }
+        }
+    }
+
+    private bool IsOverBox()
+    {
+        var box = GameObject.FindGameObjectWithTag("Box");
+        if (box != null && box.TryGetComponent(out Collider boxCollider))
+        {
+            return boxCollider.bounds.Contains(transform.position);
+        }
+        return false;
+    }
+
+    private void SnapToBox()
+    {
+        var box = GameObject.FindGameObjectWithTag("Box");
+        transform.localScale *= 0.2f;
+        transform.position = box.transform.position + Vector3.up * 0.1f;
+        isSnappedToBox = true;
+        Debug.Log($"{name} placed in the box.");
+    }
+
+    private void ReturnToStart()
+    {
+        transform.localScale /= 0.2f;
+        transform.position = startPosition;
+        isSnappedToBox = false;
+        Debug.Log($"{name} removed from the box.");
+    }
+}
