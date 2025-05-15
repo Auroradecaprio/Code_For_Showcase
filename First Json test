@@ -1,0 +1,53 @@
+using UnityEngine;
+using UnityEngine.UI;
+using System.IO;
+using Newtonsoft.Json;
+
+public class Input_Test : MonoBehaviour
+{
+    public Text displayText;
+
+    private string selectionFile = "selection.json";
+
+    void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Alpha1))
+        {
+            SetAndStoreSelection("Paris");
+        }
+        else if (Input.GetKeyDown(KeyCode.Alpha2))
+        {
+            SetAndStoreSelection("Ski");
+        }
+        else if (Input.GetKeyDown(KeyCode.Alpha3))
+        {
+            SetAndStoreSelection("Pizza");
+        }
+    }
+
+    void SetAndStoreSelection(string value)
+    {
+        displayText.text = value;
+
+        var data = new SelectionData { SelectedWord = value };
+
+        var filePath = Path.Combine(Application.persistentDataPath, selectionFile);
+
+        using (var outStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
+        {
+            using (var writer = new StreamWriter(outStream))
+            {
+                writer.Write(JsonConvert.SerializeObject(data));
+                writer.Flush();
+            }
+        }
+
+        Debug.Log($"Saved selection: {value} to {filePath}");
+        Debug.Log("it worked");
+    }
+}
+
+public class SelectionData
+{
+    public string SelectedWord;
+}
