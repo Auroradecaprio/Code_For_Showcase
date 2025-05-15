@@ -1,0 +1,46 @@
+using UnityEngine;
+using UnityEngine.UI;
+using System.Collections.Generic;
+
+public class MultiObjectSliderRotator : MonoBehaviour
+{
+    [System.Serializable]
+    public class RotatingTarget
+    {
+        public Transform target;
+        public float minAngle;
+        public float maxAngle;
+    }
+
+    public Slider rotationSlider;
+    public List<RotatingTarget> rotatingObjects = new List<RotatingTarget>();
+
+    void Start()
+    {
+        // All rooms start at 0
+        foreach (RotatingTarget obj in rotatingObjects)
+        {
+            if (obj.target != null)
+            {
+                obj.target.localRotation = Quaternion.Euler(0, 0, 0);
+            }
+        }
+
+        // Restet slider
+        if (rotationSlider != null)
+        {
+            rotationSlider.value = 0f;
+        }
+    }
+
+    void Update()
+    {
+        float t = rotationSlider.value;
+
+        foreach (RotatingTarget obj in rotatingObjects)
+        {
+            float angle = Mathf.Lerp(obj.minAngle, obj.maxAngle, t);
+            obj.target.localRotation = Quaternion.Euler(0, angle, 0);
+        }
+    }
+}
