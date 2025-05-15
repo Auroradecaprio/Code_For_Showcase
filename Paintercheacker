@@ -1,0 +1,42 @@
+using System.Collections.Generic;
+using System.Reflection;
+using UnityEngine;
+
+public class paintingChecker : MonoBehaviour
+{
+    public List<MonoBehaviour> scriptsToCheck;
+    //name of the bool variable to check
+    public string boolVariableName = "targetBool"; 
+
+    void Start()
+    {
+        //call the function to check the bools
+        bool allTrue = CheckAllBoolsTrue();
+        Debug.Log("Are all bools set to true? " + allTrue);
+    }
+
+    public bool CheckAllBoolsTrue()
+    {
+        foreach (var script in scriptsToCheck)
+        {
+            if (script != null)
+            {
+               
+                FieldInfo field = script.GetType().GetField(boolVariableName);
+
+                if (field != null && field.FieldType == typeof(bool))
+                {
+                    bool boolValue = (bool)field.GetValue(script);
+                    if (!boolValue) return false; 
+                }
+                else
+                {
+                    Debug.LogWarning("Field '" + boolVariableName + "' not found in " + script.GetType().Name);
+                    return false; 
+                }
+            }
+        }
+
+        return true; //returns true if all bools are true
+    }
+}
