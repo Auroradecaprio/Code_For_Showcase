@@ -1,0 +1,379 @@
+using System.Collections;
+using UnityEngine;
+using UnityEngine.XR;
+using Unity.XR.CoreUtils;
+
+public class InteractionManager : MonoBehaviour
+{
+    [Header("Voice Lines")]
+    public AudioSource systemAudioSource;
+    public AudioSource dialogueAudioSource;
+    public AudioClip[] SystemVoiceLines;
+    public AudioClip[] DialogueVoiceLines;
+
+    [Header("Characters")]
+    public CharacterData[] Characters;
+
+    [Header("Controller Settings")]
+    public float vibrationDuration = 0.5f;
+    public float vibrationIntensity = 0.5f;
+
+    public GameObject miniGame1;
+
+    public static bool miniGame1Completed = false;
+
+    private static bool phoneInteracted = false;
+
+    private static bool npcInteracted = false;
+
+    private static bool npcGlimmerInteracted = false;
+
+    [Header("Puzzle References")]
+    public ButtonSequencePuzzle buttonSequencePuzzle;
+
+    [Header("Teleportation Settings")]
+    public Transform phoneTeleportTarget;  // Location to teleport after phone interaction
+    public XROrigin playerXROrigin;        
+    public float teleportYOffset = -1.0f;  
+
+
+
+    private void Start()
+    {
+        StartCoroutine(PlaySequence());
+    }
+
+    private IEnumerator PlaySequence()
+    {
+        
+        PlaySystemLine(0);
+        yield return WaitForAudio(systemAudioSource);
+
+        ActivateCharacter(0);
+
+        PlaySystemLine(1);
+        yield return WaitForAudio(systemAudioSource);
+
+        PlaySystemLine(2);
+        yield return WaitForAudio(systemAudioSource);
+        TriggerControllerVibration(); //triggers the haptic for phone ring
+        yield return TriggerInteraction("Phone");
+
+        
+        PlayDialogueLine(0);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        PlayDialogueLine(1);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        PlayDialogueLine(2);
+        yield return WaitForAudio(dialogueAudioSource);
+
+       
+        TeleportPlayerToPhoneLocation(); 
+
+        
+        PlayDialogueLine(3);
+        yield return WaitForAudio(dialogueAudioSource);
+
+       
+        PlaySystemLine(3);
+        yield return WaitForAudio(systemAudioSource);
+
+        yield return TriggerInteraction("NPC");
+        PlayDialogueLine(4);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        
+        PlayDialogueLine(5);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        PlayDialogueLine(6);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        ActivateCharacter(1);
+        PlayDialogueLine(7);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        PlayDialogueLine(8);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        
+        PlaySystemLine(4);
+        yield return WaitForAudio(systemAudioSource);
+
+        StartMiniGame("ButtonSequence");
+        yield return new WaitUntil(() => miniGame1Completed);
+
+        PlaySystemLine(5);
+        yield return WaitForAudio(systemAudioSource);
+
+        DeactivateCharacter(1);
+        ActivateCharacter(2);
+
+        TriggerControllerVibration();
+
+        PlaySystemLine(6);
+        yield return WaitForAudio(systemAudioSource);
+
+        
+        PlayDialogueLine(9);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        TriggerControllerVibration();
+        PlayDialogueLine(10);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        PlayDialogueLine(11);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        
+        PlaySystemLine(7);
+        TeleportPlayerToPhoneLocation();
+        PlaySystemLine(8);
+        yield return WaitForAudio(systemAudioSource);
+
+        ActivateCharacter(3);
+
+        PlayDialogueLine(12);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        DeactivateCharacter(3);
+        ActivateCharacter(4);
+
+        PlayDialogueLine(13);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        PlayDialogueLine(14);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        PlayDialogueLine(15);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        PlayDialogueLine(16);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        TriggerControllerVibration();
+
+        DeactivateCharacter(4);
+        ActivateCharacter(5);
+
+        PlayDialogueLine(17);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        PlayDialogueLine(18);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        PlaySystemLine(9);
+        yield return WaitForAudio(systemAudioSource);
+
+
+
+        PlayDialogueLine(19);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        PlayDialogueLine(20);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        PlayDialogueLine(21);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        DeactivateCharacter(5);
+        ActivateCharacter(6);
+
+        PlayDialogueLine(22);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        PlayDialogueLine(23);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        PlayDialogueLine(24);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        PlayDialogueLine(25);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        
+
+        PlayDialogueLine(26);
+        yield return WaitForAudio(dialogueAudioSource);
+
+        PlaySystemLine(10);
+        yield return WaitForAudio(systemAudioSource);
+        
+        StartMiniGame("TreeDecorating");
+       
+       
+        PlaySystemLine(12);
+        yield return WaitForAudio(systemAudioSource);
+
+        Debug.Log("Interaction sequence complete.");
+    }
+
+    private void PlaySystemLine(int index)
+    {
+        if (index >= 0 && index < SystemVoiceLines.Length)
+        {
+            systemAudioSource.clip = SystemVoiceLines[index];
+            systemAudioSource.Play();
+        }
+    }
+
+    private void PlayDialogueLine(int index)
+    {
+        if (index >= 0 && index < DialogueVoiceLines.Length)
+        {
+            dialogueAudioSource.clip = DialogueVoiceLines[index];
+            dialogueAudioSource.Play();
+        }
+        else
+        {
+            Debug.LogWarning("dialogue is not there");
+        }
+    }
+
+    private void ActivateCharacter(int index)
+    {
+        if (index >= 0 && index < Characters.Length)
+        {
+            foreach (GameObject obj in Characters[index].objectsToActivate)
+            {
+                obj.SetActive(true);
+            }
+
+            if (Characters[index].faceMaterial != null && Characters[index].characterRenderer != null)
+            {
+                Characters[index].characterRenderer.material = Characters[index].faceMaterial;
+            }
+        }
+    }
+
+    private void DeactivateCharacter(int index)
+    {
+        if (index >= 0 && index < Characters.Length)
+        {
+            foreach (GameObject obj in Characters[index].objectsToActivate)
+            {
+                obj.SetActive(false);
+            }
+        }
+    }
+
+    private IEnumerator TriggerInteraction(string interactionName)
+    {
+        Debug.Log($"Triggering interaction: {interactionName}");
+        
+        if (interactionName == "Phone")
+        {
+            Debug.Log("Waiting for phone interaction...");
+            yield return new WaitUntil(() => PhoneInteractionDone());
+            Debug.Log("Phone interaction complete. Continuing sequence...");
+        }
+
+        if (interactionName == "NPC")
+        {
+            Debug.Log("Waiting for NPC interaction...");
+            yield return new WaitUntil(() => NPCInteractionDone());
+            Debug.Log("NPC interaction complete. Continuing sequence...");
+        }
+
+        if (interactionName == "NPCGlimmer")
+        {
+            Debug.Log("Waiting for NPC interaction...");
+            yield return new WaitUntil(() => NPCGlimmerInteractionDone());
+            Debug.Log("NPC interaction complete. Continuing sequence...");
+        }
+    }
+
+    private void TeleportPlayerToPhoneLocation()
+    {
+        if (playerXROrigin != null && phoneTeleportTarget != null)
+        {
+            
+            Vector3 adjustedPosition = phoneTeleportTarget.position;
+            adjustedPosition.y += teleportYOffset;
+            playerXROrigin.transform.position = adjustedPosition;
+            playerXROrigin.transform.rotation = phoneTeleportTarget.rotation;
+            playerXROrigin.MoveCameraToWorldLocation(adjustedPosition);
+
+            Debug.Log("Player teleported to phone interaction location: " + adjustedPosition);
+        }
+        else
+        {
+            Debug.LogError("Teleportation failed! Check if playerXROrigin and phoneTeleportTarget are assigned.");
+        }
+    }
+
+
+
+    private static bool PhoneInteractionDone()
+    {
+        return phoneInteracted; // Returns true when the interaction is complete.
+    }
+
+    public void OnPhoneInteracted()
+    {
+        Debug.Log("Phone interacted!");
+        phoneInteracted = true;
+    }
+    private static bool NPCInteractionDone()
+    {
+        return npcInteracted;
+    }
+
+    private static bool NPCGlimmerInteractionDone()
+    {
+        return npcGlimmerInteracted;
+
+    }
+
+
+    public void OnNPCInteracted()
+    {
+        Debug.Log("NPC interacted!");
+        npcInteracted = true;
+    }
+
+    public void OnNPCGlimmerInteracted()
+    {
+        Debug.Log("NPC interacted!");
+        npcGlimmerInteracted = true;
+    }
+    private void StartMiniGame(string miniGameName)
+    {
+        Debug.Log($"Starting mini-game: {miniGameName}");
+        var gameLogic = miniGame1.GetComponent<MiniGame>();
+        gameLogic.StartMiniGameLogic();
+    }
+
+ 
+
+    private void TriggerControllerVibration()
+    {
+        Debug.Log("Controller vibration triggered.");
+        //Adds hapttics
+        InputDevice targetDevice = InputDevices.GetDeviceAtXRNode(XRNode.LeftHand);
+        targetDevice.SendHapticImpulse(0, vibrationIntensity, vibrationDuration);
+
+        targetDevice = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
+        targetDevice.SendHapticImpulse(0, vibrationIntensity, vibrationDuration);
+    }
+
+
+
+    private IEnumerator WaitForAudio(AudioSource audioSource)
+    {
+        while (audioSource.isPlaying)
+        {
+            yield return null;
+        }
+    }
+}
+
+[System.Serializable]
+public class CharacterData
+{
+    public GameObject[] objectsToActivate;
+    public Renderer characterRenderer;
+    public Material faceMaterial;
+}
