@@ -1,0 +1,53 @@
+
+using UnityEngine;
+using MongoDB.Bson;
+using MongoDB.Driver;
+using System;
+using System.Threading.Tasks;
+using static UnityEngine.UIElements.UxmlAttributeDescription;
+using Newtonsoft.Json.Serialization;
+public class Connect : MonoBehaviour
+{
+    [SerializeField] private MongodbConnectionstring connectionString;
+
+    MongoClient client;
+    public IMongoDatabase database;
+
+    private void Awake()
+    {
+        var MongoConnectionString = string.Format(connectionString.format,connectionString.user,connectionString.password, connectionString.database);
+        Debug.Log(MongoConnectionString);
+        // gets the the MongoDB settings
+        var settings = MongoClientSettings.FromConnectionString(MongoConnectionString);
+        // Sets the ServerApi field of the settings object to set the version of the Stable API on the client
+        settings.ServerApi = new ServerApi(ServerApiVersion.V1);
+        client = new MongoClient(MongoConnectionString);
+        // Send a ping to confirm a successful connection
+        try
+        {
+            database = client.GetDatabase("datatest");
+            var result = database.RunCommand<BsonDocument>(new BsonDocument("ping", 1));
+            Debug.Log("Pinged your deployment. You successfully connected to MongoDB!");
+        }
+        catch (Exception ex)
+        {
+            Debug.Log(ex);
+        }
+    }
+
+    public async void UploadUserID(UserStatistics Document)
+    {
+        var usersCollection = database.GetCollection<UserStatistics>("Users");
+        var queryableCollection = usersCollection.AsQueryable();
+
+        await usersCollection.InsertOneAsync(Document);
+    }
+
+    public async void UploadMinigameData(MinigameData MGD)
+    {
+        var Collection = database.GetCollection<MinigameData>($"Minigame Data");
+       
+
+        await Collection.InsertOneAsync(MGD);
+    }
+}
