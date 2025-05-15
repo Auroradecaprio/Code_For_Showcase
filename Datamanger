@@ -1,0 +1,161 @@
+using UnityEngine;
+using Newtonsoft.Json;
+using System.Collections.Generic;
+using System.IO;
+using System;
+using UnityEngine.SceneManagement;
+using MongoDB.Bson.IO;
+using MongoDB.Bson.Serialization.Attributes;
+using MongoDB.Bson;
+
+public class StoredData
+{
+    public string StoredName { get; set; }
+    public float XPosition { get; set; }
+    public float YPosition { get; set; }
+    public float ZPosition { get; set; }
+
+}
+
+public class UserStatistics
+{
+    [BsonGuidRepresentation(GuidRepresentation.Standard)] public Guid PlayerId;
+
+    public string CurrentGame;
+}
+
+public class GameData
+{
+    public int TimeTaken;
+}
+
+public class Config
+{
+    public List<StoredData> StoredEntities = new List<StoredData>();
+
+}
+
+public class Manager : MonoBehaviour
+{
+    public UserStatistics PlayerInfo;
+
+    public string ConfigFileName = "user.json";
+
+    public string UserStatisticFile = "statistics.json";
+
+    public string MongoDBConnection = "bladie";
+
+    private void Awake()
+    {
+        DontDestroyOnLoad(this);
+
+        LoadConfig();
+
+    }
+
+    void Start()
+    {
+        SceneManager.LoadScene(PlayerInfo.CurrentGame);
+
+        var g = new GameData();
+
+        g.TimeTaken = 10;
+
+        StoreData(g);
+
+    }
+
+    void Update()
+    {
+
+
+
+    }
+
+    void LoadConfig()
+    {
+        var configFilePath = Path.Combine(Application.persistentDataPath, ConfigFileName);
+
+        Debug.Log(configFilePath);
+
+        if (File.Exists(configFilePath))
+
+        {
+
+            using (var inStream = new FileStream(configFilePath, FileMode.Open, FileAccess.Read))
+
+            {
+
+                using (var reader = new StreamReader(inStream))
+
+                {
+
+                    Debug.Log("Player already exists, loading");
+
+                    UserStatistics sts = Newtonsoft.Json.JsonConvert.DeserializeObject<UserStatistics>(reader.ReadToEnd());
+
+                    PlayerInfo = sts;
+
+                }
+
+            }
+
+        }
+        else
+        {
+            //var cfg = new Config();
+
+            var sts = new UserStatistics();
+
+            sts.PlayerId = Guid.NewGuid();
+
+            sts.CurrentGame = "Start";
+
+            Debug.Log("This is the first time we are running, we have created a new player");
+
+            using (var outStream = new FileStream(configFilePath, FileMode.Create, FileAccess.Write))
+            {
+
+                using (var writer = new StreamWriter(outStream))
+
+                {
+
+                    writer.Write(Newtonsoft.Json.JsonConvert.SerializeObject(sts));
+
+                    writer.Flush();
+
+                }
+
+            }
+
+        }
+
+    }
+
+    void StoreData(GameData gd)
+    {
+        var dataFilePath = Path.Combine(Application.persistentDataPath, UserStatisticFile);
+
+        Debug.Log(dataFilePath);
+
+        Debug.Log("Storing data");
+
+        using (var outStream = new FileStream(dataFilePath, FileMode.Create, FileAccess.Write))
+        {
+            using (var writer = new StreamWriter(outStream))
+            {
+                writer.Write(Newtonsoft.Json.JsonConvert.SerializeObject(gd));
+
+                writer.Flush();
+
+            }
+        }
+    }
+}
+
+
+public enum RoundaboutChoiceType
+{
+    exit,
+    entrance,
+}
