@@ -1,0 +1,182 @@
+using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.EnhancedTouch;
+using UnityEngine.UI;
+using EnhancedTouch = UnityEngine.InputSystem.EnhancedTouch.Touch;
+
+public class MultiCamZoom : MonoBehaviour
+{
+
+    // for the multiple cameras in each room
+    public Camera[] cameras;
+    public float zoomSpeedTouch = 0.01f;
+    public float zoomSpeedMouse = 0.5f;
+    public float minZoom = 2f;
+    public float maxZoom = 10f;
+    public int activeCameraIndex = 0;
+
+    public Slider zoomSlider;
+    // itteration from public testing with kamiel
+
+    private Vector3[] defaultPositions;
+    private Vector3 zoomFocusWorldPos;
+    private bool hasZoomFocus = false;
+    private bool isSliderBeingUsed = false;
+
+    private void Awake()
+    {
+        EnhancedTouchSupport.Enable();
+
+        defaultPositions = new Vector3[cameras.Length];
+        for (int i = 0; i < cameras.Length; i++)
+        {
+            if (cameras[i] != null)
+                defaultPositions[i] = cameras[i].transform.position;
+        }
+
+        if (zoomSlider != null)
+        {
+            zoomSlider.minValue = minZoom;
+            zoomSlider.maxValue = maxZoom;
+            zoomSlider.value = cameras[activeCameraIndex].orthographicSize;
+            zoomSlider.onValueChanged.AddListener(OnZoomSliderChanged);
+        }
+    }
+
+    private void OnEnable()
+    {
+        TouchSimulation.Enable();
+    }
+
+    private void OnDisable()
+    {
+        TouchSimulation.Disable();
+    }
+
+    private bool IsZoomedOutDefault(Camera cam)
+    {
+        return Mathf.Approximately(cam.orthographicSize, maxZoom);
+    }
+
+    void Update()
+    {
+        if (activeCameraIndex < 0 || activeCameraIndex >= cameras.Length) return;
+
+        Camera cam = cameras[activeCameraIndex];
+        if (!cam.orthographic)
+        {
+            Debug.LogWarning("Active camera is not orthographic. Zooming skipped.");
+            return;
+        }
+
+#if UNITY_EDITOR || UNITY_STANDALONE
+        if (Mouse.current.leftButton.wasPressedThisFrame)
+        {
+            hasZoomFocus = true;
+            zoomFocusWorldPos = cam.ScreenToWorldPoint(Mouse.current.position.ReadValue());
+        }
+
+        float scroll = Mouse.current.scroll.ReadValue().y;
+        if (Mathf.Abs(scroll) > 0.01f)
+        {
+            float oldSize = cam.orthographicSize;
+            float newSize = Mathf.Clamp(oldSize - scroll * zoomSpeedMouse, minZoom, maxZoom);
+            float zoomFactor = newSize / oldSize;
+
+            if (hasZoomFocus)
+                cam.transform.position = zoomFocusWorldPos + (cam.transform.position - zoomFocusWorldPos) * zoomFactor;
+
+            cam.orthographicSize = newSize;
+
+            if (IsZoomedOutDefault(cam))
+            {
+                cam.transform.position = defaultPositions[activeCameraIndex];
+                hasZoomFocus = false;
+            }
+        }
+#endif
+//just in case we want to build on oter softerwere
+#if UNITY_ANDROID || UNITY_IOS || UNITY_EDITOR
+        var touches = EnhancedTouch.activeTouches;
+
+        if (touches.Count == 2)
+        {
+            var touch0 = touches[0];
+            var touch1 = touches[1];
+
+            Vector2 touch0PrevPos = touch0.screenPosition - touch0.delta;
+            Vector2 touch1PrevPos = touch1.screenPosition - touch1.delta;
+
+            float prevDist = Vector2.Distance(touch0PrevPos, touch1PrevPos);
+            float currDist = Vector2.Distance(touch0.screenPosition, touch1.screenPosition);
+            float diff = prevDist - currDist;
+
+            float oldSize = cam.orthographicSize;
+            float newSize = Mathf.Clamp(oldSize + diff * zoomSpeedTouch, minZoom, maxZoom);
+            float zoomFactor = newSize / oldSize;
+
+            if (!hasZoomFocus)
+                zoomFocusWorldPos = cam.ScreenToWorldPoint((touch0.screenPosition + touch1.screenPosition) * 0.5f);
+
+            cam.transform.position = zoomFocusWorldPos + (cam.transform.position - zoomFocusWorldPos) * zoomFactor;
+            cam.orthographicSize = newSize;
+
+            if (IsZoomedOutDefault(cam))
+            {
+                cam.transform.position = defaultPositions[activeCameraIndex];
+                hasZoomFocus = false;
+            }
+
+            // Two-finger paning so it deosnt break with the draggable object
+            Vector2 prevMidPoint = (touch0PrevPos + touch1PrevPos) * 0.5f;
+            Vector2 currMidPoint = (touch0.screenPosition + touch1.screenPosition) * 0.5f;
+            Vector2 delta = currMidPoint - prevMidPoint;
+            Vector3 panDelta = cam.ScreenToWorldPoint(currMidPoint - delta) - cam.ScreenToWorldPoint(currMidPoint);
+            cam.transform.position += panDelta;
+        }
+#endif
+
+        // Sync slider with camera zoom unless user is dragging the slider
+        if (zoomSlider != null && !isSliderBeingUsed)
+        {
+            zoomSlider.value = cam.orthographicSize;
+        }
+    }
+
+    public void OnZoomSliderChanged(float value)
+    {
+        isSliderBeingUsed = true;
+
+        Camera cam = cameras[activeCameraIndex];
+        if (cam != null && cam.orthographic)
+        {
+            float oldSize = cam.orthographicSize;
+            float newSize = Mathf.Clamp(value, minZoom, maxZoom);
+            float zoomFactor = newSize / oldSize;
+
+            if (!hasZoomFocus)
+            {
+                zoomFocusWorldPos = cam.ScreenToWorldPoint(new Vector3(Screen.width / 2, Screen.height / 2));
+            }
+
+            cam.transform.position = zoomFocusWorldPos + (cam.transform.position - zoomFocusWorldPos) * zoomFactor;
+            cam.orthographicSize = newSize;
+
+            if (IsZoomedOutDefault(cam))
+            {
+                cam.transform.position = defaultPositions[activeCameraIndex];
+                hasZoomFocus = false;
+            }
+        }
+
+        isSliderBeingUsed = false;
+    }
+
+    public void SetActiveCamera(int index)
+    {
+        if (index >= 0 && index < cameras.Length)
+        {
+            activeCameraIndex = index;
+        }
+    }
+}
